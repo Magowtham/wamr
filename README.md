@@ -100,21 +100,6 @@ mosquitto_pub -h <MQTT_BROKER_IP> -t "wasm/kill" -m "terminate"
 
 ---
 
-## **📂 Project Structure**  
-
-```
-📦 mqtt-wasm-executor
-├── 📁 include        # Header files
-├── 📁 src            # Source code
-├── 📁 build          # Compiled binaries (after build)
-├── 📁 wasm           # Sample WASM AOT files
-├── Makefile         # Build system
-├── README.md        # Project documentation (this file)
-└── config.h         # Configuration file
-```
-
----
-
 ## **📌 Notes**  
 - Ensure your WASM module is compiled using **WAMR’s AOT compilation** before execution.  
 - The project currently supports **MQTT-based message exchange** but can be extended to other protocols.  
