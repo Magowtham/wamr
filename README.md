@@ -1,128 +1,93 @@
-Here’s a well-structured and engaging **README** for your repository:  
+# WASM Execution Manager
 
----
+## Overview
+This project is a lightweight WASM execution manager designed to receive, load, and execute WebAssembly (WASM) workloads dynamically. The execution is managed using the WebAssembly Micro Runtime (WAMR) and controlled through messaging. The system supports starting and stopping WASM workloads efficiently in an embedded or cloud environment.
 
-## **🚀 MQTT-Based WASM Execution Engine**  
+## Features
+- Receives and stores WASM workloads dynamically.
+- Loads and executes WASM workloads using WAMR.
+- Supports runtime execution control.
+- Threaded execution model for non-blocking operations.
 
-Welcome to the **MQTT-Based WASM Execution Engine!** 🎉  
-This project enables seamless execution of **WebAssembly (WASM) workloads** over **MQTT protocol**, allowing efficient remote execution on lightweight embedded devices.  
+## Prerequisites
+Before setting up and running this project, ensure you have the following dependencies installed on your system:
 
-### **✨ Features**  
-✅ **MQTT-Based Execution** – WASM workloads are sent as MQTT messages for remote execution.  
-✅ **AOT Execution** – Supports **Ahead-of-Time (AOT) compiled** WASM for optimal performance.  
-✅ **Lightweight & Fast** – Minimal resource usage, making it ideal for embedded and IoT environments.  
-✅ **Two Primary Signals:**  
-   - `wasm/start` – Start execution of a WASM module.  
-   - `wasm/kill` – Stop the running WASM instance.  
+- **GCC** (for compiling the C source code)
+- **CMake** (for building WAMR)
+- **Make** (for build automation)
+- **WebAssembly Micro Runtime (WAMR)** (for executing WASM workloads)
+- **Paho MQTT C Library** (for message handling)
 
----
-
-## **📌 Prerequisites**  
-
-Before building and running the project, install the required dependencies:  
-
-### **🔹 Install Required Packages**  
-**For Ubuntu/Debian:**  
-```bash
-sudo apt update
-sudo apt install -y build-essential cmake libssl-dev mosquitto-clients
+### Install Dependencies on Linux
+```sh
+sudo apt update && sudo apt install -y gcc cmake make libpaho-mqtt3c-dev
 ```
 
-**For Fedora/RHEL:**  
-```bash
-sudo dnf install -y gcc-c++ make cmake openssl-devel mosquitto-clients
+## Setting Up the Project
+
+### Clone the Repository
+```sh
+git clone <your-repository-url>
+cd <your-repository-name>
 ```
 
-**For Arch Linux:**  
-```bash
-sudo pacman -Syu base-devel cmake openssl mosquitto
-```
-
-### **🔹 Install `paho.mqtt.c` (MQTT Client Library)**  
-```bash
-git clone https://github.com/eclipse/paho.mqtt.c.git
-cd paho.mqtt.c
-cmake -B build -DCMAKE_INSTALL_PREFIX=/usr/local
-cmake --build build --target install
-cd ..
-```
-
-### **🔹 Install WAMR (WebAssembly Micro Runtime)**  
-```bash
-git clone https://github.com/bytecodealliance/wasm-micro-runtime.git
-cd wasm-micro-runtime
+### Build and Install WAMR
+```sh
+mkdir -p wamr_runtime && cd wamr_runtime
+git clone --recursive https://github.com/bytecodealliance/wasm-micro-runtime.git
+cd wasm-micro-runtime/product-mini/platforms/linux
 mkdir build && cd build
-cmake ..
-make -j$(nproc)
-sudo make install
-cd ../..
+cmake .. && make -j$(nproc)
+cd ../../../../..
 ```
 
----
-
-## **🛠️ Build the Project**  
-
-Clone the repository and build the project using **Makefile**:  
-```bash
-git clone https://github.com/your_username/your_repo.git
-cd your_repo
+### Build the WASM Execution Manager
+```sh
 make
 ```
 
----
+This will compile the project and generate the executable in the `build/` directory.
 
-## **🚀 Running the WASM Execution Service**  
-
-### **1️⃣ Start an MQTT Broker (Mosquitto)**
-If you don’t have an MQTT broker running, start a local Mosquitto instance:  
-```bash
-mosquitto -v
-```
-Or use a cloud-hosted MQTT broker like **HiveMQ** or **EMQX**.
-
-### **2️⃣ Start the WASM Execution Engine**
-Run the executable to start listening for MQTT messages:  
-```bash
-./wasm_executor
+## Running the Project
+To start the execution manager, run:
+```sh
+./build/main
 ```
 
-### **3️⃣ Publish a WASM Module (Start Execution)**
-Send a **precompiled AOT WASM module** using `mosquitto_pub`:  
-```bash
-mosquitto_pub -h <MQTT_BROKER_IP> -t "wasm/start" -f my_aot_module.aot
+The program will wait for incoming WASM workloads and execute them dynamically.
+
+## Project Structure
+```
+.
+├── src/            # Source code files
+├── include/        # Header files
+├── wamr_runtime/   # WebAssembly Micro Runtime
+├── build/          # Compiled binaries and object files
+├── Makefile        # Build system
+└── README.md       # Project documentation
 ```
 
-### **4️⃣ Stop Execution (Kill Signal)**
-To stop the running WASM instance:  
-```bash
-mosquitto_pub -h <MQTT_BROKER_IP> -t "wasm/kill" -m "terminate"
-```
+## Execution Flow
+1. The system initializes WAMR.
+2. It listens for incoming WASM workloads.
+3. Upon receiving a workload, it:
+   - Loads the WASM module.
+   - Instantiates the module.
+   - Creates an execution environment.
+   - Executes the specified function.
+4. Workloads can be stopped on request.
+
+## Troubleshooting
+- **Build Errors?** Ensure all dependencies are installed and WAMR is properly built.
+- **Execution Fails?** Check that your WASM module is compiled correctly for WAMR.
+- **Missing Libraries?** Ensure `libpaho-mqtt3c` and WAMR's shared libraries are linked correctly.
+
+## Future Enhancements
+- Improved workload management and logging.
+- Support for multiple concurrent executions.
+- Additional runtime controls.
 
 ---
+Feel free to contribute or raise issues if you encounter problems!
 
-## **📌 Notes**  
-- Ensure your WASM module is compiled using **WAMR’s AOT compilation** before execution.  
-- The project currently supports **MQTT-based message exchange** but can be extended to other protocols.  
 
----
-
-## **💡 Future Enhancements**  
-🔹 Add support for **WASM-SN (WASM Secure Networking)**.  
-🔹 Implement **execution state tracking** and real-time logs.  
-🔹 Extend support for **multiple concurrent WASM workloads**.  
-
----
-
-## **🤝 Contributing**  
-Contributions are welcome! Feel free to submit **issues** and **pull requests**.  
-
----
-
-## **📜 License**  
-This project is **open-source** under the **MIT License**.  
-
----
-
-🚀 **Happy Hacking!** 🎯  
-
-Let me know if you need any modifications! 🚀

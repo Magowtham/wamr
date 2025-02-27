@@ -5,7 +5,6 @@
 
 #define MQTT_ADDRESS   "tcp://34.47.250.228:1883"  // MQTT Broker
 #define MQTT_CLIENTID  "c_publisher"              // Unique Client ID
-#define MQTT_TOPIC     "wasm/start"               // MQTT Topic
 #define MQTT_QOS       1
 #define MQTT_TIMEOUT   10000L                      // Timeout in milliseconds
 
@@ -39,8 +38,16 @@ int read_wasm_file(const char *file_path, unsigned char **buffer, size_t *size) 
     return 0;
 }
 
-int main() {
-    const char *file_path = "./test1";  // Path to the AOT wasm file
+int main(int argc,char **args) {
+     
+    if(argc < 3 ) {
+	    printf("Usage ./main <wasm-aot-file-path> <topic>\n");
+	    printf("Topics: wasm/start, wasm/kill");
+	    return 0;
+    }
+
+    const char *file_path = args[1];  // Path to the AOT wasm file
+    char *topic = args[2];
     unsigned char *wasm_buffer = NULL;
     size_t wasm_size = 0;
 
@@ -74,7 +81,7 @@ int main() {
     pubmsg.retained = 0;
 
     MQTTClient_deliveryToken token;
-    if (MQTTClient_publishMessage(client, MQTT_TOPIC, &pubmsg, &token) != MQTTCLIENT_SUCCESS) {
+    if (MQTTClient_publishMessage(client,topic, &pubmsg, &token) != MQTTCLIENT_SUCCESS) {
         fprintf(stderr, "Failed to publish message.\n");
         free(wasm_buffer);
         MQTTClient_disconnect(client, 1000);
