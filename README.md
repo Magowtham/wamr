@@ -1,93 +1,130 @@
-# WASM Execution Manager
+# Running a WAMR-based C Program on Zephyr
 
-## Overview
-This project is a lightweight WASM execution manager designed to receive, load, and execute WebAssembly (WASM) workloads dynamically. The execution is managed using the WebAssembly Micro Runtime (WAMR) and controlled through messaging. The system supports starting and stopping WASM workloads efficiently in an embedded or cloud environment.
+## Introduction to Zephyr
 
-## Features
-- Receives and stores WASM workloads dynamically.
-- Loads and executes WASM workloads using WAMR.
-- Supports runtime execution control.
-- Threaded execution model for non-blocking operations.
+[Zephyr](https://zephyrproject.org/) is a lightweight, real-time operating system (RTOS) designed for embedded systems. It supports multiple architectures and provides a rich set of APIs for networking, device management, and multithreading. Unlike traditional Linux-based systems, Zephyr does not have a full POSIX environment, requiring adaptations when porting applications from Linux to Zephyr.
 
-## Prerequisites
-Before setting up and running this project, ensure you have the following dependencies installed on your system:
+### Differences Between Standard Linux APIs and Zephyr APIs
 
-- **GCC** (for compiling the C source code)
-- **CMake** (for building WAMR)
-- **Make** (for build automation)
-- **WebAssembly Micro Runtime (WAMR)** (for executing WASM workloads)
-- **Paho MQTT C Library** (for message handling)
+When porting a C program from Linux to Zephyr, we need to replace standard POSIX APIs with their Zephyr equivalents. Below are key differences:
 
-### Install Dependencies on Linux
+| Feature         | Linux (POSIX) API | Zephyr API |
+|---------------|----------------|------------|
+| Threads       | `pthread_create()` | `k_thread_create()` |
+| Memory Allocation | `malloc()/free()` | `k_malloc()/k_free()` |
+| Logging       | `printf()` | `LOG_INF()` |
+| Mutexes       | `pthread_mutex_t` | `struct k_mutex` |
+| Networking (MQTT) | `paho-mqtt` (POSIX sockets) | `net/mqtt.h` (Zephyr native) |
+| Delays        | `sleep()` | `k_sleep()` |
+
+Since Zephyr does not support traditional `main()` entry points like Linux, we need to define our own initialization function using `SYS_INIT()` or create a Zephyr thread for execution.
+
+## Setting Up Zephyr for Development on Linux
+
+To run our program on Zephyr, we first need to install Zephyr dependencies and set up an emulation environment for testing.
+
+### Prerequisites
+
+1. Install Zephyr dependencies:
+   ```sh
+   sudo apt update && sudo apt install --no-install-recommends cmake ninja-build gperf ccache dfu-util python3-dev python3-pip python3-setuptools python3-tk python3-wheel xz-utils file make gcc git curl
+   ```
+
+2. Install Zephyr SDK:
+   ```sh
+   wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.16.3/zephyr-sdk-0.16.3_linux-x86_64.tar.xz
+   tar xvf zephyr-sdk-0.16.3_linux-x86_64.tar.xz -C $HOME
+   export ZEPHYR_SDK_INSTALL_DIR=$HOME/zephyr-sdk-0.16.3
+   $ZEPHYR_SDK_INSTALL_DIR/setup.sh
+   ```
+
+3. Initialize Zephyr environment:
+   ```sh
+   west init -m https://github.com/zephyrproject-rtos/zephyr zephyrproject
+   cd zephyrproject
+   west update
+   west zephyr-export
+   source zephyr-env.sh
+   ```
+
+4. Install Python dependencies:
+   ```sh
+   pip3 install -r zephyr/scripts/requirements.txt
+   ```
+
+### Running Zephyr on Linux Using QEMU
+
+Zephyr provides an emulator (QEMU) for running and testing Zephyr applications without physical hardware. To simulate Zephyr:
+
 ```sh
-sudo apt update && sudo apt install -y gcc cmake make libpaho-mqtt3c-dev
+west build -p auto -b qemu_x86 samples/hello_world -- -DCONF_FILE=prj.conf
+west run
 ```
 
-## Setting Up the Project
+This should print `Hello World!` from Zephyr in the terminal, confirming that the environment is set up correctly.
 
-### Clone the Repository
+## Building WAMR for Zephyr
+
+Since Zephyr is an embedded RTOS, we need to cross-compile the WebAssembly Micro Runtime (WAMR) for Zephyr. Follow these steps:
+
+1. Clone WAMR:
+   ```sh
+   git clone https://github.com/bytecodealliance/wasm-micro-runtime.git
+   cd wasm-micro-runtime
+   ```
+
+2. Build WAMR for Zephyr:
+   ```sh
+   cd product-mini/platforms/zephyr
+   west build -p auto -b qemu_x86
+   west flash
+   ```
+
+This compiles WAMR for Zephyr and prepares it to run WebAssembly workloads.
+
+## Building and Running Our C Program on Zephyr
+
+To compile and run our WAMR-based C program on Zephyr:
+
+1. Copy your modified Zephyr-compatible C code to a new application directory inside `zephyrproject`.
+2. Create a `CMakeLists.txt` file:
+   ```cmake
+   cmake_minimum_required(VERSION 3.13.1)
+   find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
+   project(wamr_zephyr)
+   FILE(GLOB app_sources src/*.c)
+   target_sources(app PRIVATE ${app_sources})
+   ```
+3. Create a `prj.conf` file:
+   ```ini
+   CONFIG_STDOUT_CONSOLE=y
+   CONFIG_NETWORKING=y
+   CONFIG_NET_IPV4=y
+   CONFIG_MQTT_LIB=y
+   ```
+4. Build and run:
+   ```sh
+   west build -p auto -b qemu_x86
+   west run
+   ```
+
+### Flashing to a Physical Device
+
+If you want to flash the application to an actual embedded board (e.g., STM32, NRF52, ESP32), replace `qemu_x86` with your board name:
 ```sh
-git clone <your-repository-url>
-cd <your-repository-name>
+west build -p auto -b <your-board>
+west flash
 ```
 
-### Build and Install WAMR
-```sh
-mkdir -p wamr_runtime && cd wamr_runtime
-git clone --recursive https://github.com/bytecodealliance/wasm-micro-runtime.git
-cd wasm-micro-runtime/product-mini/platforms/linux
-mkdir build && cd build
-cmake .. && make -j$(nproc)
-cd ../../../../..
-```
+## Conclusion
 
-### Build the WASM Execution Manager
-```sh
-make
-```
+This README provides a complete guide to porting a Linux-based C program to Zephyr, including:
+- Differences in APIs between Linux and Zephyr.
+- Setting up Zephyr development tools and dependencies.
+- Running Zephyr applications using QEMU for Linux-based emulation.
+- Building WAMR for Zephyr.
+- Compiling and running our MQTT-enabled WASM execution program on Zephyr.
 
-This will compile the project and generate the executable in the `build/` directory.
-
-## Running the Project
-To start the execution manager, run:
-```sh
-./build/main
-```
-
-The program will wait for incoming WASM workloads and execute them dynamically.
-
-## Project Structure
-```
-.
-├── src/            # Source code files
-├── include/        # Header files
-├── wamr_runtime/   # WebAssembly Micro Runtime
-├── build/          # Compiled binaries and object files
-├── Makefile        # Build system
-└── README.md       # Project documentation
-```
-
-## Execution Flow
-1. The system initializes WAMR.
-2. It listens for incoming WASM workloads.
-3. Upon receiving a workload, it:
-   - Loads the WASM module.
-   - Instantiates the module.
-   - Creates an execution environment.
-   - Executes the specified function.
-4. Workloads can be stopped on request.
-
-## Troubleshooting
-- **Build Errors?** Ensure all dependencies are installed and WAMR is properly built.
-- **Execution Fails?** Check that your WASM module is compiled correctly for WAMR.
-- **Missing Libraries?** Ensure `libpaho-mqtt3c` and WAMR's shared libraries are linked correctly.
-
-## Future Enhancements
-- Improved workload management and logging.
-- Support for multiple concurrent executions.
-- Additional runtime controls.
-
----
-Feel free to contribute or raise issues if you encounter problems!
+With this setup, you can now develop and test your WAMR-based application in an embedded environment powered by Zephyr! 🚀
 
 
